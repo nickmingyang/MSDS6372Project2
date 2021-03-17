@@ -1,0 +1,116 @@
+---
+title: "MSDS6372_EDAProject2"
+author: "Mingyang Nick YU"
+date: "3/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## This is EDA for MSDS 6372 Project 2
+
+#### First part below is for dataset selection
+
+1. Predicting if a customer will subscribe to a term deposit
+Resource:
+https://archive.ics.uci.edu/ml/datasets/Bank+Marketing
+Pro: No missing data, all missing is marked as unknown - Dataset is fairly clean
+Con: No: 36548, Yes:4640 - Heavy unbalanced data 9:1
+```{r}
+setwd("/Users/mingyang/Desktop/SMU/Applied Statistics/MSDS6372Project2/bank-additional")
+library(tidyverse)
+bank = read.csv("bank-additional-full.csv",header=TRUE,sep=";") 
+str(bank)
+variables.to.factor = c("job","marital","education","default","housing","loan","contact","month","day_of_week","poutcome","y")
+bank[variables.to.factor] = lapply(bank[variables.to.factor],factor)
+summary(bank)
+summary(bank$job)
+bank %>% filter_all(any_vars(is.na(.)))
+```
+
+2. Predicting if someone makes over 50k
+https://archive.ics.uci.edu/ml/datasets/Adult
+Pro: Easier to understand data, less variable, Train Test set already split and provided for you
+Con: Have missing data - however due to the amount we can either delete or set them to unknown (should not affect result as much)
+    Still have unbalance data for training dataset <=50k: 24720, >50kL 7841 - not as bad
+                                  test dataset <=50K.:12435 >50K. : 3846
+```{r}
+setwd("/Users/mingyang/Desktop/SMU/Applied Statistics/MSDS6372Project2/Adult-Income")
+library(tidyverse)
+adult = read.csv("adult.data.csv",header=FALSE,sep=",",strip.white=TRUE) 
+colnames(adult) <- c(
+  "age", # continuous
+  "workclass",# Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked
+  "fnlwgt", # continous, final weight. In other words, this is the number of people the census believes the entry represents
+  "education", # Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, 
+              # Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.education-num: continuous
+  "education-num", # continuous
+  "marital-status", # Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
+  "occupation",  # Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct,                 # Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces
+  "relationship", # Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried
+  "race", # White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black
+  "sex",   # Female, Male
+  "capital-gain", # continuous
+  "capital-loss", # continuous
+  "hours-per-week", # continuous
+  "native-country", # United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands
+  "income" # expects to predict
+)
+str(adult)
+## First, convert "?"s to NAs...
+adult[adult == "?"] <- NA
+variables.to.factor = c("workclass","education","marital-status","occupation","relationship","race","sex","native-country","income")
+adult[variables.to.factor] = lapply(adult[variables.to.factor],factor)
+summary(adult)
+
+# inporting testing data
+adult.test = read.csv("adult.test.csv",header=FALSE,sep=",",strip.white=TRUE)
+colnames(adult.test) <- c(
+  "age", # continuous
+  "workclass",# Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked
+  "fnlwgt", # continous, final weight. In other words, this is the number of people the census believes the entry represents
+  "education", # Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, 
+              # Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.education-num: continuous
+  "education-num", # continuous
+  "marital-status", # Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
+  "occupation",  # Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct,                 # Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces
+  "relationship", # Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried
+  "race", # White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black
+  "sex",   # Female, Male
+  "capital-gain", # continuous
+  "capital-loss", # continuous
+  "hours-per-week", # continuous
+  "native-country", # United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands
+  "income" # expects to predict
+)
+## First, convert "?"s to NAs...
+adult.test[adult.test == "?"] <- NA
+variables.to.factor = c("workclass","education","marital-status","occupation","relationship","race","sex","native-country","income")
+adult.test[variables.to.factor] = lapply(adult.test[variables.to.factor],factor)
+summary(adult.test)
+
+adult.missing = adult %>% filter_all(any_vars(is.na(.)))
+adult.test.missing = adult.test %>% filter_all(any_vars(is.na(.)))
+view(adult.missing)
+```
+
+3. Assessing risk factors and predicting if a woman with osteopetrosis will have a bone fracture within the first year after joining the study.
+Resource:R package aplore3, use the glow_bonemed data set
+Pro: No missing data, already cleaned data for the most part, less many level categories
+Con: Much smaller dataset - ratio of fracture is still about 3:1 No:Yes
+```{r}
+library(aplore3)
+head(glow_bonemed)
+str(glow_bonemed)
+summary(glow_bonemed)
+```
+
+
+
+
+
+
+
+
