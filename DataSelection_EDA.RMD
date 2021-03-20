@@ -44,7 +44,7 @@ colnames(adult) <- c(
   "age", # continuous
   "workclass",# Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked
   "fnlwgt", # continous, final weight. In other words, this is the number of people the census believes the entry represents
-  "education", # Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, 
+  "education", # Bachelors, Some-college, //11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, 
               # Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.education-num: continuous
   "education-num", # continuous
   "marital-status", # Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
@@ -93,7 +93,10 @@ summary(adult.test)
 
 adult.missing = adult %>% filter_all(any_vars(is.na(.)))
 adult.test.missing = adult.test %>% filter_all(any_vars(is.na(.)))
-view(adult.missing)
+# Look at missing data
+library(naniar)
+gg_miss_var(adult)
+gg_miss_var(adult.test)
 ```
 
 3. Assessing risk factors and predicting if a woman with osteopetrosis will have a bone fracture within the first year after joining the study.
@@ -105,6 +108,7 @@ library(aplore3)
 head(glow_bonemed)
 str(glow_bonemed)
 summary(glow_bonemed)
+gg_miss_var(glow_bonemed)
 ```
 
 
