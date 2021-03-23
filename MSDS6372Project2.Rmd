@@ -238,7 +238,7 @@ plot(income~native.country,col=c("red","blue"))
 #### EDA on Training dataset - adult (continue)
 1. Based on the Pairs plot between principle components, there seem to have some seperation between two response levels under PC1 and PC2, PC1 and PC3, PC2 and PC3 seem to have more like a QDA relationship(QDA might run better)
 2. Although there seem to be some seperation, this seperation doesn't seem to be particularly satisfying - so using continuous variables along may not lead to great prediction
-3. Age and marrital status may have some interaction see below.
+3. Age and marital.status may have some interaction see below.
 4. We didn't find any highly correlated continous variables
 
 ```{r}
@@ -302,7 +302,8 @@ plot(hours.per.week~education) # Not particularly interesting
 plot(capital.gain~cp.eover7298) # variable created 
 plot(age~marital.status) # Widowed have the highest mean age
 plot(age~relationship)
-
+plot(sex~education)
+plot(sex~occupation) # Sex and occupation might be interesting interaction term
 
 ```
 
@@ -370,9 +371,87 @@ library(caret)
 confusionMatrix(class.sm1,adult.test$income)
 
 # As we can see the Sensitivity and Specificity is roughly the same both over 80%
+# Accuracy : 0.8184 Sensitivity : 0.8226 Specificity : 0.8057
 
 ```
 
+#### Objective 2 Part 1 - more complicated logistic regression model
+```{r}
+# With our EDA age and marital status might be interesting to explore as an interaction
+# Also relationship and marital.status might also be useful to be considered as interaction
+# Run LASSO to see what variables turn on or off
+dat.adult.x1 <- model.matrix(income~age+workclass+education+marital.status+occupation+race+sex+capital.loss+hours.per.week+cp.eover7298+age:marital.status+relationship+relationship:marital.status-1,adult)
+dat.adult.y1<-adult[,15]
+cvfit1 <- cv.glmnet(dat.adult.x1, dat.adult.y1, family = "binomial", type.measure = "class", nlambda = 1000)
+plot(cvfit1)
+coef(cvfit1, s = "lambda.min")
+print("Penalty Value:")
+cvfit1$lambda.min
+# age:marital.status didn't get turned on
+# some levels under marital.status interact with relationship got turned on
+
+
+# We will also add native.country back in to see if it can improve performance 
+# Fit a glm model by taking out age:marital.status but keep marital.status:relationship
+# Run a forward selection to see if anything get kept in the model
+complex.log<-glm(income~age+workclass+education+marital.status+occupation+race+sex+capital.loss+hours.per.week+cp.eover7298+relationship+relationship:marital.status+native.country,family="binomial",data=adult)
+step.log1<-complex.log %>% stepAIC(trace=FALSE)
+summary(step.log1)
+
+# We can see from the stepAIC selection
+# age, workclass, education, marital.status, occupation, race, sex, capital.loss, hours.per.week, cp.eover7298, relationship, native.country got selected
+# Let's compare both complex.log and step.log1 prediction performance on the test set
+
+#Making predictions for complex.log for ROC plot#####
+fit.pred.complex1<-predict(complex.log,newdata=adult.test,type="response")
+
+# Generate ROC curve to find a cutoff to use
+results.complex1 <-prediction(fit.pred.complex1, adult.test$income,label.ordering=c("<=50K.",">50K."))
+roc.complex1 = performance(results.complex1, measure = "tpr", x.measure = "fpr")
+plot(roc.complex1,colorize = TRUE)
+abline(a=0, b= 1)
+#Calculate logistic regression complex using cut of 0.3 on test set
+cutoff1<-0.275
+class.complex1 <-factor(ifelse(fit.pred.complex1>cutoff1,">50K.","<=50K."),levels=c("<=50K.",">50K."))
+confusionMatrix(class.complex1,adult.test$income)
+# The complex model has about the same performance by adding in relationship:marital.status interaction
+# Accuracy : 0.817  Sensitivity : 0.8192 Specificity : 0.8102
+
+#Making predictions for step.log1 for ROC plot#####
+
+fit.pred.step1<-predict(step.log1,newdata=adult.test,type="response")
+
+# Generate ROC curve to find a cutoff to use
+results.step1 <-prediction(fit.pred.step1, adult.test$income,label.ordering=c("<=50K.",">50K."))
+roc.step1 = performance(results.step1, measure = "tpr", x.measure = "fpr")
+plot(roc.step1,colorize = TRUE)
+abline(a=0, b= 1)
+#Calculate logistic regression complex using cut of 0.3 on test set
+cutoff1<-0.275
+class.step1 <-factor(ifelse(fit.pred.step1>cutoff1,">50K.","<=50K."),levels=c("<=50K.",">50K."))
+confusionMatrix(class.step1,adult.test$income)
+# The step1 model has about the same performance compared to complex model with interaction
+# Accuracy : 0.8174 Sensitivity : 0.8194 Specificity : 0.8112
+
+# Now exploring adding sex and occupation interaction
+complex.log2<-glm(income~age+workclass+education+marital.status+occupation+race+sex+capital.loss+hours.per.week+cp.eover7298+relationship+native.country+sex:occupation,family="binomial",data=adult)
+
+#Making predictions for complex.log2 for ROC plot#####
+fit.pred.complex2<-predict(complex.log2,newdata=adult.test,type="response")
+
+# Generate ROC curve to find a cutoff to use
+results.complex2 <-prediction(fit.pred.complex2, adult.test$income,label.ordering=c("<=50K.",">50K."))
+roc.complex2 = performance(results.complex2, measure = "tpr", x.measure = "fpr")
+plot(roc.complex2,colorize = TRUE)
+abline(a=0, b= 1)
+#Calculate logistic regression complex using cut of 0.3 on test set
+cutoff1<-0.275
+class.complex2 <-factor(ifelse(fit.pred.complex2>cutoff1,">50K.","<=50K."),levels=c("<=50K.",">50K."))
+confusionMatrix(class.complex2,adult.test$income)
+# The complex model has about the same performance by adding in relationship:marital.status interaction
+# Accuracy : Accuracy : 0.8167  Sensitivity : 0.8183 Specificity : 0.8118
+
+```
 
 
 
