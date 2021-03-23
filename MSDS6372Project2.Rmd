@@ -611,7 +611,7 @@ plot(roc.sm1)
 plot(roc.complex2,col="orange", add = TRUE)
 plot(roc.lda,col="blue",add=TRUE)
 plot(roc.rf,col="green",add=TRUE)
-legend("bottomright",legend=c("Simple LR","Complex LG","LDA","Random Forest"),col=c("black","orange","blue","green"),lty=1,lwd=1)
+legend("bottomright",legend=c("Simple LR","Complex LR","LDA","Random Forest"),col=c("black","orange","blue","green"),lty=1,lwd=1)
 abline(a=0, b= 1)
 
 ```
