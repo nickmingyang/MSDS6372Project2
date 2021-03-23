@@ -239,6 +239,7 @@ plot(income~native.country,col=c("red","blue"))
 1. Based on the Pairs plot between principle components, there seem to have some seperation between two response levels under PC1 and PC2, PC1 and PC3, PC2 and PC3 seem to have more like a QDA relationship(QDA might run better)
 2. Although there seem to be some seperation, this seperation doesn't seem to be particularly satisfying - so using continuous variables along may not lead to great prediction
 3. Age and marrital status may have some interaction see below.
+4. We didn't find any highly correlated continous variables
 
 ```{r}
 # It will be interesting to first perform a PCA and look at how numeric variables can contribute to predicting the response
@@ -292,7 +293,8 @@ plot(have.capital.loss$capital.loss~have.capital.loss$income,col=c("red","blue")
 plot(hours.per.week~income,col=c("red","blue")) # hours.per.week can potentially be a good predictor since there seem to have a good seperation between mean of the two groups
 
 # Do a pairwise plot to see if there are some multicollinearity between continuous variables
-#ggpairs(reduced,aes(colour=income)) # commented out due to slow run time - under images continous_pair.png
+#ggpairs(reduced,aes(colour=income)) # commented out due to slow run time - under images continuous_pair.png
+# We didn't find any highly correlated continous variables
 
 # Do some exploration between continuous variable and categorical predictors
 plot(age~education) # Not particularly interesting
