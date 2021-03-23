@@ -48,6 +48,8 @@ edu.levels = factor(c("Preschool","1st-4th","5th-6th","7th-8th","9th","10th","11
 adult$education <- factor(adult$education, levels = edu.levels)
 variables.to.factor = c("workclass","marital.status","occupation","relationship","race","sex","native.country","income")
 adult[variables.to.factor] = lapply(adult[variables.to.factor],factor)
+# Create variable cp.eover7298 per EDA discovery - capital gain equal or over 7298 - using "No" as reference
+adult$cp.eover7298<-factor(ifelse(adult$capital.gain>=7298,"Yes","No"),levels=c("No","Yes"))
 summary(adult)
 
 # inporting testing data
@@ -79,7 +81,8 @@ adult.test = adult.test %>% filter(workclass!="Not-Known"& occupation!="Not-Know
 adult.test$education <- factor(adult.test$education, levels=edu.levels)
 variables.to.factor = c("workclass","marital.status","occupation","relationship","race","sex","native.country","income")
 adult.test[variables.to.factor] = lapply(adult.test[variables.to.factor],factor)
-
+# Create variable cp.eover7298 per EDA discovery - capital gain equal or over 7298 - using "No" as reference
+adult.test$cp.eover7298<-factor(ifelse(adult.test$capital.gain>=7298,"Yes","No"),levels=c("No","Yes"))
 summary(adult.test)
 
 #adult.missing = adult %>% filter_all(any_vars(is.na(.)))
@@ -212,20 +215,30 @@ chi.test4
 # It is best to go back to restrict our range of occupation and workclass to known only - since we want to use both to predict later on
 
 # Looking at some categoricals predictors against response
-table(income,sex) # sex can be contributing to income
-table(income,workclass)
-table(income,education) # Master, Prof-school, Doctorate all have more people making over 50k
-table(income,marital.status)
-table(income,relationship)
-table(income,occupation)
-table(income,race)
-table(income,native.country)
+
+ftable(addmargins(table(income,sex))) # sex can be contributing to income
+plot(income~sex,col=c("red","blue"))
+ftable(addmargins(table(income,workclass)))
+plot(income~workclass,col=c("red","blue"))
+ftable(addmargins(table(income,education))) # Master, Prof-school, Doctorate all have more people making over 50k
+plot(income~education,col=c("red","blue"))
+ftable(addmargins(table(income,marital.status)))
+plot(income~marital.status,col=c("red","blue"))
+ftable(addmargins(table(income,relationship)))
+plot(income~relationship,col=c("red","blue"))
+addmargins(table(income,occupation))
+plot(income~occupation,col=c("red","blue"))
+ftable(addmargins(table(income,race)))
+plot(income~race,col=c("red","blue"))
+addmargins(table(income,native.country))
+plot(income~native.country,col=c("red","blue"))
 
 ```
 
 #### EDA on Training dataset - adult (continue)
 1. Based on the Pairs plot between principle components, there seem to have some seperation between two response levels under PC1 and PC2, PC1 and PC3, PC2 and PC3 seem to have more like a QDA relationship(QDA might run better)
 2. Although there seem to be some seperation, this seperation doesn't seem to be particularly satisfying - so using continuous variables along may not lead to great prediction
+3. Age and marrital status may have some interaction see below.
 
 ```{r}
 # It will be interesting to first perform a PCA and look at how numeric variables can contribute to predicting the response
@@ -280,10 +293,83 @@ plot(hours.per.week~income,col=c("red","blue")) # hours.per.week can potentially
 
 # Do a pairwise plot to see if there are some multicollinearity between continuous variables
 #ggpairs(reduced,aes(colour=income)) # commented out due to slow run time - under images continous_pair.png
+
+# Do some exploration between continuous variable and categorical predictors
+plot(age~education) # Not particularly interesting
+plot(hours.per.week~education) # Not particularly interesting
+plot(capital.gain~cp.eover7298) # variable created 
+plot(age~marital.status) # Widowed have the highest mean age
+plot(age~relationship)
+
+
 ```
 
+#### Objective 1 - Build a simple Logistic regression model for interpretation
 
+```{r}
+library(MASS)
+library(glmnet)
+dat.adult.x <- model.matrix(income~.-1,adult)
+dat.adult.y<-adult[,15]
+cvfit <- cv.glmnet(dat.adult.x, dat.adult.y, family = "binomial", type.measure = "class", nlambda = 1000)
+plot(cvfit)
+coef(cvfit, s = "lambda.min")
+print("Penalty Value:")
+cvfit$lambda.min
+# By Looking at the turned on coefficient at lambda.min:
+# age, workclass, education, education.num, marital.status, occupation, relationship, race, sex, capital.gain, capital.loss
+# hours.per.week, native.country, cp.eover7298
+# Are all turned on
+##############################################
+# However we know from our EDA
+# education and education.num are perfectly correlated with each other - so we will keep education only(delete education.num from simple model)
+# cp.eover7298 is more useful variable that derived from capital.gain - so we will keep cp.eover7298 instead of capital.gain
+# marital status has four levels turned on, while relationship also has 4 levels turned on - however marital status has bigger coefficient(so we will keep marital status in the model and get rid of relationship variable for now since we don't want GVIF issue with a interpretable model)
 
+# Following refit with glm model with the variables turned on - EDA variables we deemed less important
+simple.log <- glm(income~age+workclass+education+marital.status+occupation+race+sex+capital.loss+hours.per.week+native.country+cp.eover7298,family="binomial",data=adult)
+step.log<-simple.log %>% stepAIC(trace=FALSE)
+summary(step.log)
+exp(cbind("Odds ratio" = coef(step.log), confint.default(step.log, level = 0.95)))
+
+# As we can see from above stepAIC function got rid of native.country variable - it has too many levels and the training model seem to find better balance without it
+# Even education is not significantly different from reference level of Preschool - the group as a whole has been kept by stepAIC
+# Furthermore - education's coefficient, eg: educationDoctorate = 15.5 - seem to contribute a lot more than say workclassState-gov -0.84
+# So we will keep education in the model and refit the model
+
+simple.log1 <- glm(income~age+workclass+education+marital.status+occupation+race+sex+capital.loss+hours.per.week+cp.eover7298,family="binomial",data=adult)
+summary(simple.log1)
+exp(cbind("Odds ratio" = coef(simple.log1), confint.default(simple.log1, level = 0.95)))
+
+# Look at the leverage and cook's D plot for the model
+plot(simple.log1)
+# As we can see from the Residuals vs Leverage plot - there are some higher leverage points
+# However Cook's distance suggests no observation seem to be of great concern in our model(no high residual and high leverage point)
+
+#Making predictions for simple.log1 for ROC plot
+fit.pred.sm1<-predict(simple.log1,newdata=adult.test,type="response")
+
+# Generate ROC curve to find a cutoff to use
+library(ROCR)
+results.sm1 <-prediction(fit.pred.sm1, adult.test$income,label.ordering=c("<=50K.",">50K."))
+roc.sm1 = performance(results.sm1, measure = "tpr", x.measure = "fpr")
+plot(roc.sm1,colorize = TRUE)
+abline(a=0, b= 1)
+
+# Since this dataset is to predict whether income is less than or equal to 50K or greater than 50K
+# We want the sensitivity and specificity to be roughly the same - no reasoon to prefer one group or the other
+# As we can see from the color legend, the greant to light blue region will give over 80% True positive rate and less than 20% False positive rate
+# And that cut off is roughly correspond to 0.275
+
+#Calculate logistic regression using cut of 0.3 on test set
+cutoff<-0.275
+class.sm1<-factor(ifelse(fit.pred.sm1>cutoff,">50K.","<=50K."),levels=c("<=50K.",">50K."))
+library(caret)
+confusionMatrix(class.sm1,adult.test$income)
+
+# As we can see the Sensitivity and Specificity is roughly the same both over 80%
+
+```
 
 
 
