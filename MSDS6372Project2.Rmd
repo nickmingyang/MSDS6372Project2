@@ -1,0 +1,295 @@
+---
+title: "MSDS6372Project2"
+author: "Amber Clark, Feby Thomas Cheruvathoor and Mingyang Nick YU"
+date: "3/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Data Import and Initial Inspection
+```{r}
+setwd("/Users/mingyang/Desktop/SMU/Applied Statistics/MSDS6372Project2/Adult-Income")
+library(tidyverse)
+adult = read.csv("adult.data.csv",header=FALSE,sep=",",strip.white=TRUE) 
+# Assign column names
+colnames(adult) <- c(
+  "age", # continuous
+  "workclass",# Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked
+  "fnlwgt", # continous, final weight. In other words, this is the number of people the census believes the entry represents
+  "education", # Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, 
+              # Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.education-num: continuous
+  "education.num", # continuous
+  "marital.status", # Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
+  "occupation",  # Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct,                 # Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces
+  "relationship", # Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried
+  "race", # White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black
+  "sex",   # Female, Male
+  "capital.gain", # continuous
+  "capital.loss", # continuous
+  "hours.per.week", # continuous
+  "native.country", # United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands
+  "income" # expects to predict
+)
+str(adult)
+## First, convert "?"s to Not-Known...
+adult[adult == "?"] <- "Not-Known"
+
+# Decision is made to delete Not-Known observations under workclass & occupation (based on EDA below)
+# 1. workclass and occupation missing values are almost identical - except a few workclass assigned Never-worked has a few Not-Known
+# workclass and occupation seem to both being good potential predictors for response income
+# Thus decision is made to delete Not-Known under occupation and workclass - restrict our range to only predict observation that has occupation or workclass that is known to us
+adult = adult%>% filter(workclass!="Not-Known" & occupation!="Not-Known")
+
+# Reorder education levels for later
+edu.levels = factor(c("Preschool","1st-4th","5th-6th","7th-8th","9th","10th","11th","12th","HS-grad","Some-college","Assoc-voc","Assoc-acdm","Bachelors","Masters","Prof-school","Doctorate"))
+adult$education <- factor(adult$education, levels = edu.levels)
+variables.to.factor = c("workclass","marital.status","occupation","relationship","race","sex","native.country","income")
+adult[variables.to.factor] = lapply(adult[variables.to.factor],factor)
+summary(adult)
+
+# inporting testing data
+adult.test = read.csv("adult.test.csv",header=FALSE,sep=",",strip.white=TRUE)
+colnames(adult.test) <- c(
+  "age", # continuous
+  "workclass",# Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked
+  "fnlwgt", # continous, final weight. In other words, this is the number of people the census believes the entry represents
+  "education", # Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, 
+              # Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.education-num: continuous
+  "education.num", # continuous
+  "marital.status", # Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
+  "occupation",  # Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct,                 # Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces
+  "relationship", # Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried
+  "race", # White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black
+  "sex",   # Female, Male
+  "capital.gain", # continuous
+  "capital.loss", # continuous
+  "hours.per.week", # continuous
+  "native.country", # United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands
+  "income" # expects to predict
+)
+## First, convert "?"s to Not-Known...
+adult.test[adult.test == "?"] <- "Not-Known"
+
+# Similar decision is made to delete workclass that has Not-Known to utilize both workclass and occupation
+adult.test = adult.test %>% filter(workclass!="Not-Known"& occupation!="Not-Known")
+
+adult.test$education <- factor(adult.test$education, levels=edu.levels)
+variables.to.factor = c("workclass","marital.status","occupation","relationship","race","sex","native.country","income")
+adult.test[variables.to.factor] = lapply(adult.test[variables.to.factor],factor)
+
+summary(adult.test)
+
+#adult.missing = adult %>% filter_all(any_vars(is.na(.)))
+#adult.test.missing = adult.test %>% filter_all(any_vars(is.na(.)))
+# Look at missing data
+library(naniar)
+gg_miss_var(adult)
+gg_miss_var(adult.test)
+
+```
+
+#### Before keeping the train/test split it came with, check out if training set has covered all the levels for test set
+Category workclass, education, marital.status, occupation, relationship, race, native.country all need to be checked 
+
+**By Observing the given split below, all levels have been careful split to make sure all test set levels has been included in training set, and it looks like the split ratio is about 2:1 between train and test set. Decided to keep such split and proceed EDA on training set to prevent bias towards test set**
+
+**Since the NA values only exist on occupation, workclass, and native.country, it make sense to keep them as Not Known instead of simply deleting them since there might be some common features among the Not Known categories to make the prediction more accurate - if they turn out to be outliers instead, we can always (went back to previous code chunk to rerun it to "Not Known" instead.)**
+
+```{r}
+summary(adult$workclass)
+summary(adult.test$workclass)
+# By Looking at workclass - it doesn't seem to have any level issues
+
+summary(adult$education)
+summary(adult.test$education)
+# By Looking at education column - it doesn't seem to have any level issues
+
+summary(adult$marital.status)
+summary(adult.test$marital.status)
+# By Looking at marital.status column - it doesn't seem to have any level issues
+
+summary(adult$occupation)
+summary(adult.test$occupation)
+# By Looking at occupation column - it doesn't seem to have any level issues
+
+summary(adult$relationship)
+summary(adult.test$relationship)
+# By Looking at relationship column - it doesn't seem to have any level issues
+
+summary(adult$race)
+summary(adult.test$race)
+# By Looking at race column - it doesn't seem to have any level issues
+
+summary(adult$native.country)
+summary(adult.test$native.country)
+# By Looking at native.country column - it doesn't seem to have any level issues
+```
+
+#### EDA on Training dataset - adult (initial inspection and correlation between predictors)
+1. marital.status and relationship are correlated with each other - By looking at table marital.status vs relationship - their interaction can be potentially interesting in explaining a specific situation - might be interesting to explore as an interaction term
+2. education.num and education are perfectly correlated with each other - education.num is probably directly derived from education level
+3. Due to the fact missing values between workclass and occupation are almost identical and they seem to both contribute to predicting response variable (income), so decision is made to delete missing values in these two observations to preserve the ability to use both variables.
+4. After identifying the correlation between the response above, by fitting a lm model for the remaining predictors, GVIF is no longer an issue
+
+```{r}
+library(GGally)
+# education, occupation, and native-country have 15 levels or more - these levels need to be explored individually
+# ggpairs(adult,columns=c(1,2,3,5,6,8,9,10,11,12,13),aes(colour=income))
+# Comment out due to large run time. See image folder pairsplot1.png
+# Blue is >50k, Orange <=50k
+# Some workclass, marital.status, relationship, race, sex might be helpful for predicting income based on initial pairs plot
+
+#create temp variable in order to fit lm model to test vif
+temp = as.numeric(adult$income)
+linear.model = lm(temp~.-income-education.num-occupation,data=adult)
+
+library(car) # where vif lives
+summary(linear.model)
+vif(linear.model)
+
+# See above result. Since occupation and education.num are creating aliased coefficients in the model they were removed from the  model first
+# By looking at the rest of the predictors marital.status has GVIF of 63.54, and relationship has GVIF of 79.49 - these can potentiall have multicollinearity problems
+
+# remove relationship variable see if GVIF gets better
+linear.model1 = lm(temp~.-income-education.num-occupation-relationship,data=adult)
+vif(linear.model1)
+
+table(marital.status,relationship)
+# Although by looking at the table above. It seems Marital status can be helpful in explaining status of a specific relationship status
+# So even GVIF is high with them both present, their interaction can be helpful to make a better model
+
+# looks like after relationship is removed marital.status becomes a lot better
+# so marital.status and relationship are correlated with each other which also make intuitive sense
+
+# Which variable is more associated with the response though? - try chi-squared test approximation(since dataset is quite large)
+attach(adult)
+chi.test <- chisq.test(table(income,marital.status))
+chi.test
+# Extremely small p-value < 2.2e-16 - marital.status and income are strongly associated
+
+chi.test1 <- chisq.test(table(income,relationship))
+chi.test1
+# About the same levels of association
+summary(marital.status)
+summary(relationship)
+# Can potentially explore either marital.status and relationship to see which one produce better prediction
+
+# Note education.num and education may also be strongly correlated
+plot(education.num~education)
+# As we can see education.num and education are perfectly correlated with each other - education.num is probably directly derived from education level
+# Although the actual education category doesn't assume equal distance between levels - it might be a better predictor overall
+
+# Try getting rid of relationship and education.num and see if occupation is still an issue with GVIF
+linear.model2 = lm(temp~.-income-education.num-relationship,data=adult)
+summary(linear.model2)
+vif(linear.model2)
+
+# summary(linear.model2) tells us there might be a perfect correlation between Not-Known between workclass and occupation
+# Following code to verify if this is true
+adult.temp = adult %>% filter(workclass=="Not-Known"|occupation=="Not-Known") %>% select(workclass,occupation)
+#view(adult.temp)
+# There is a perfect correlation existed between missingi values of workclass and occupation in original dataset
+summary(workclass)
+summary(occupation)
+
+# Take a look at whether workclass and occupation are independent from each other
+chi.test2 <- chisq.test(table(occupation,workclass))
+chi.test2
+# So the two groups aren't independent from each other
+
+# Check whether occupation contribute to predicting response variable
+chi.test3 <- chisq.test(table(income,occupation))
+chi.test3
+
+# Check whether workclass contribute to predicting response variable
+chi.test4 <- chisq.test(table(income,workclass))
+chi.test4
+
+# Both occupation and workclass seem to associated strongly with the response(income)
+# It is best to go back to restrict our range of occupation and workclass to known only - since we want to use both to predict later on
+
+# Looking at some categoricals predictors against response
+table(income,sex) # sex can be contributing to income
+table(income,workclass)
+table(income,education) # Master, Prof-school, Doctorate all have more people making over 50k
+table(income,marital.status)
+table(income,relationship)
+table(income,occupation)
+table(income,race)
+table(income,native.country)
+
+```
+
+#### EDA on Training dataset - adult (continue)
+1. Based on the Pairs plot between principle components, there seem to have some seperation between two response levels under PC1 and PC2, PC1 and PC3, PC2 and PC3 seem to have more like a QDA relationship(QDA might run better)
+2. Although there seem to be some seperation, this seperation doesn't seem to be particularly satisfying - so using continuous variables along may not lead to great prediction
+
+```{r}
+# It will be interesting to first perform a PCA and look at how numeric variables can contribute to predicting the response
+reduced<-adult[,-c(2,4,6,7,8,9,10,14,15)]
+# There are only five numeric variables including education.num which derived from education
+pc.result<-prcomp(reduced,scale.=TRUE)
+pc.scores<-pc.result$x
+
+#Adding the response column to the PC's data frame
+pc.scores<-data.frame(pc.scores)
+pc.scores$income<-adult$income
+
+#Use ggplot2 to plot the first few pc's
+library(ggplot2)
+ggplot(data = pc.scores, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=income), size=1)+
+  ggtitle("PCA of Census dataset")
+
+ggplot(data = pc.scores, aes(x = PC2, y = PC3)) +
+  geom_point(aes(col=income), size=1)+
+  ggtitle("PCA of Census dataset")
+
+# use ggpairs to plot all 6 components
+# ggpairs(pc.scores,columns=c(1:6),aes(colour=income)) # Comment out due to slow plotting speed - image saved as PCA_pair1.png
+# pairs plot between principle components - anaysis above this code chunk 
+
+# Explore some continuous variables predicting response
+plot(age~income,col=c("red","blue")) # Might be a good predictor - mean are slighly different
+plot(fnlwgt~income,col=c("red","blue")) # Almost identical between two groups - may not be a good predictor
+plot(education.num~income,col=c("red","blue")) # education.num derived from education may be a good predictor if only continuous variable can be used
+plot(capital.gain~income,col=c("red","blue")) # There is a floor value of 0 for both groups
+summary(capital.gain)
+have.capital.gain = adult %>% filter(capital.gain>0)
+summary(have.capital.gain$capital.gain)
+# view(have.capital.gain%>%select(income,capital.gain))
+plot(have.capital.gain$capital.gain~have.capital.gain$income,col=c("red","blue")) 
+# among the observations that have capital gain - capital gains is a good predictor
+# seems capital.gain > 1st Qu, it is mostly over 50k income group
+summary(have.capital.gain%>% filter(income==">50K")%>%select(capital.gain)) #1st Qu is 7289 capital gain - most people making over this threadhold is over 50k
+capital.gain.over7298 = have.capital.gain%>%filter(capital.gain>=7298)
+dim(capital.gain.over7298 %>% filter(income==">50K"))
+dim(capital.gain.over7298 %>% filter(income=="<=50K"))
+# Based on the result above - capital.gain over threadshold 7298 has 98.66% of people making over 50k
+# This inspires us to create a indicator variable to improve accuracy rate
+
+plot(capital.loss~income,col=c("red","blue")) #similar to capital gain most values are around 0
+# However values that is not 0 seem to converge to similar mean - so it doesn't looks as helpful to us as a predictor
+have.capital.loss = adult%>%filter(capital.loss>0)
+plot(have.capital.loss$capital.loss~have.capital.loss$income,col=c("red","blue")) # mean seem to significantly different from each other
+
+plot(hours.per.week~income,col=c("red","blue")) # hours.per.week can potentially be a good predictor since there seem to have a good seperation between mean of the two groups
+
+# Do a pairwise plot to see if there are some multicollinearity between continuous variables
+#ggpairs(reduced,aes(colour=income)) # commented out due to slow run time - under images continous_pair.png
+```
+
+
+
+
+
+
+
+
+
+
+
+
