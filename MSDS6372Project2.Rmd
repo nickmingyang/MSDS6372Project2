@@ -190,10 +190,12 @@ linear.model2 = lm(temp~.-income-education.num-relationship,data=adult)
 summary(linear.model2)
 vif(linear.model2)
 
+######## This Code part has been readdressed at the above importing section #############################################
 # summary(linear.model2) tells us there might be a perfect correlation between Not-Known between workclass and occupation
 # Following code to verify if this is true
-adult.temp = adult %>% filter(workclass=="Not-Known"|occupation=="Not-Known") %>% select(workclass,occupation)
+#adult.temp = adult %>% filter(workclass=="Not-Known"|occupation=="Not-Known") %>% select(workclass,occupation)
 #view(adult.temp)
+########################################################################################################################
 # There is a perfect correlation existed between missingi values of workclass and occupation in original dataset
 summary(workclass)
 summary(occupation)
@@ -243,7 +245,7 @@ plot(income~native.country,col=c("red","blue"))
 
 ```{r}
 # It will be interesting to first perform a PCA and look at how numeric variables can contribute to predicting the response
-reduced<-adult[,-c(2,4,6,7,8,9,10,14,15)]
+reduced<-adult[,-c(2,4,6,7,8,9,10,14,15,16)]
 # There are only five numeric variables including education.num which derived from education
 pc.result<-prcomp(reduced,scale.=TRUE)
 pc.scores<-pc.result$x
