@@ -344,6 +344,7 @@ exp(cbind("Odds ratio" = coef(step.log), confint.default(step.log, level = 0.95)
 
 simple.log1 <- glm(income~age+workclass+education+marital.status+occupation+race+sex+capital.loss+hours.per.week+cp.eover7298,family="binomial",data=adult)
 summary(simple.log1)
+vif(simple.log1)
 exp(cbind("Odds ratio" = coef(simple.log1), confint.default(simple.log1, level = 0.95)))
 
 # Look at the leverage and cook's D plot for the model
@@ -378,6 +379,31 @@ confusionMatrix(class.sm1,adult.test$income)
 # As we can see the Sensitivity and Specificity is roughly the same both over 80%
 # Accuracy : 0.8184 Sensitivity : 0.8226 Specificity : 0.8057
 
+# Try another model without education since it is not significant
+simple.log2 <- glm(income~age+workclass+marital.status+occupation+race+sex+capital.loss+hours.per.week+cp.eover7298,family="binomial",data=adult)
+summary(simple.log2)
+plot(simple.log2)
+fit.pred.sm2<-predict(simple.log2,newdata=adult.test,type="response")
+
+results.sm2 <-prediction(fit.pred.sm2, adult.test$income,label.ordering=c("<=50K.",">50K."))
+roc.sm2 = performance(results.sm2, measure = "tpr", x.measure = "fpr")
+plot(roc.sm2,colorize = TRUE)
+abline(a=0, b= 1)
+auc.sm2 <- performance(results.sm2, measure = "auc")
+auc.sm2 <- auc.sm2@y.values
+text(x = .40, y = .6,paste("AUC = ", round(auc.sm2[[1]],3), sep = ""))
+# AUC = 0.892
+# Since this dataset is to predict whether income is less than or equal to 50K or greater than 50K
+# We want the sensitivity and specificity to be roughly the same - no reasoon to prefer one group or the other
+# As we can see from the color legend, the greant to light blue region will give over 80% True positive rate and less than 20% False positive rate
+# And that cut off is roughly correspond to 0.275
+
+#Calculate logistic regression using cut of 0.3 on test set
+cutoff<-0.26
+class.sm2<-factor(ifelse(fit.pred.sm2>cutoff,">50K.","<=50K."),levels=c("<=50K.",">50K."))
+confusionMatrix(class.sm2,adult.test$income)
+vif(simple.log2)
+#Accuracy : 0.8048 Sensitivity : 0.8058 Specificity : 0.8020
 ```
 
 #### Objective 2 Part 1 - more complicated logistic regression model
