@@ -560,7 +560,10 @@ confusionMatrix(class.qda,adult.test$income)
 ```
 
 #### Objective 2 part 3 - Nonparametric model approach - Random forest
-Default RF ntree = 10 and m variables =sqrt(p) seem to work better than ntree=100
+- Default RF ntree = 500 and m variables =sqrt(p) seem to work better than ntree=100
+- Try iterate through mtry variable from 1 to 10 using prediction cut off previously discovered - seems mtry = 1 works best on overall accuracy
+- After actually fitting random forest with mtry = 1 the AUC = 0.882 (performance is worse compare to default mtry=3). Sensitivity and Specificity also suffers after adjusting the cut off. So Default RF option still wins!
+- So Mtry = 3 seems to be the perfect balance for our dataset in order to provide good AUC.
 ```{r}
 library(randomForest)
 set.seed(1)
@@ -598,7 +601,7 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.rf[[1]],3), sep = ""))
 #Calculate logistic regression complex using cut of 0.425 on test set
 cutoff3<-0.425
 class.rf <-factor(ifelse(rf.prob>cutoff3,">50K.","<=50K."),levels=c("<=50K.",">50K."))
-confusionMatrix(class.rf,adult.test$income)
+cm = confusionMatrix(class.rf,adult.test$income)
 # Accuracy : 0.8114 Sensitivity : 0.8118 Specificity : 0.8102
 
 ###############################################################################################
@@ -630,6 +633,48 @@ cutoff4<-0.41
 class.rf1 <-factor(ifelse(rf.prob1>cutoff4,">50K.","<=50K."),levels=c("<=50K.",">50K."))
 confusionMatrix(class.rf1,adult.test$income)
 # Accuracy : 0.8089 Sensitivity : 0.8114 Specificity : 0.8012
+
+##### Find best mtry ####
+# Use custom loop to find it based on training model
+# Using previous discovered cutoff3 = 0.425 
+parameter = 10
+overall.Accuracy = c()
+for(i in 1:parameter){
+  set.seed(1)
+  rf.adult.temp = randomForest(income~.,data=adult,mtry=i)
+  rf.pred.temp = predict(rf.adult.temp,newdata=testdata,type = "prob")
+  rf.prob.temp = rf.pred.temp[,2]
+  class.rf.temp <-factor(ifelse(rf.prob.temp>cutoff3,">50K.","<=50K."),levels=c("<=50K.",">50K."))
+  cm.temp = confusionMatrix(class.rf.temp,adult.test$income)
+  overall.Accuracy[i]=cm.temp$overall[1]
+}
+overall.Accuracy
+
+###### Giving us Mtry = 1 is the best split ####
+# Try this option
+
+set.seed(1)
+rf.adult2 = randomForest(income~.,data=adult,mtry=1)
+
+# Run randomForest prediction
+rf.pred.prob2 = predict(rf.adult2,newdata=testdata,type = "prob")
+rf.prob2 = rf.pred.prob2[,2]
+
+# Generate ROC curve to find a cutoff to use
+results.rf2 <-prediction(rf.prob2, adult.test$income,label.ordering=c("<=50K.",">50K."))
+roc.rf2 = performance(results.rf2, measure = "tpr", x.measure = "fpr")
+plot(roc.rf2,colorize = TRUE)
+abline(a=0, b= 1)
+auc.rf2 <- performance(results.rf2, measure = "auc")
+auc.rf2 <- auc.rf2@y.values
+text(x = .40, y = .6,paste("AUC = ", round(auc.rf2[[1]],3), sep = ""))
+# AUC seem to be the best yet AUC = 0.882
+# To balance off performance between high True positive and low False positive we can use around 0.2
+
+#Calculate logistic regression complex using cut of 0.43 on test set
+cutoff5<-0.16
+class.rf2 <-factor(ifelse(rf.prob2>cutoff5,">50K.","<=50K."),levels=c("<=50K.",">50K."))
+confusionMatrix(class.rf2,adult.test$income)
 
 ```
 
